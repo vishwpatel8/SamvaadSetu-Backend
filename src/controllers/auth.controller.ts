@@ -1,140 +1,247 @@
-import bcrypt from "bcryptjs";
-import { type Request, type Response } from "express";
-import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import type { Request, Response } from "express";
 
-import UserModel from "../models/user.model.js";
-
+// User Model and Validation
+import User from "@src/model/user.model";
 import {
-  type LoginRequestBody,
-  type SignupRequestBody,
-} from "../types/request.type.js";
+  loginUserValidationSchema,
+  registerUserValidationSchema,
+} from "@src/validation/user.validation";
 
-import { type JwtPayload } from "../types/user.types.js";
+// Utilities
+import {
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+} from "@src/utils/cookies";
+import { generateAccessToken, generateRefreshToken } from "@src/utils/jwt";
+import { comparePassword, hashPassword } from "@src/utils/password";
 
-export const signup = async (
-  req: Request<object, object, SignupRequestBody>,
+export const registerUser = async (
+  req: Request,
   res: Response,
 ): Promise<void> => {
-  const { firstName, lastName, email, password, gender, age } = req.body;
+  try {
+    //STEP 1:-Validate request body
+    const validationResult = registerUserValidationSchema.safeParse(req.body);
 
-  if (!firstName || !lastName || !email || !password || !gender || !age) {
-    res.status(400).json({
-      success: false,
-      message: "All fields are required",
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: validationResult.error.issues[0]?.message,
+      });
+
+      return;
+    }
+
+    const { username, email, password } = validationResult.data;
+
+    // STEP 2:- Check existing email
+    const existingEmail = await User.findOne({ email });
+
+    if (existingEmail) {
+      res.status(409).json({
+        success: false,
+        message: "Email already exists",
+      });
+
+      return;
+    }
+
+    // STEP 3:- Check existing username
+    const existingUsername = await User.findOne({ username });
+
+    if (existingUsername) {
+      res.status(409).json({
+        success: false,
+        message: "Username already taken",
+      });
+
+      return;
+    }
+
+    // STEP 4:- Hash password
+    const hashedPassword = await hashPassword(password);
+
+    //STEP 5:- Generate email verification token
+    const emailVerificationToken = crypto.randomBytes(32).toString("hex");
+
+    // STEP 6:- Create user
+    const user = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+
+      emailVerificationToken,
+      emailVerificationExpires: new Date(Date.now() + 1000 * 60 * 60),
+      isEmailVerified: false,
     });
 
-    return;
-  }
+    // STEP 7:- Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
 
-  const existingUser = await UserModel.findOne({ email });
+    // STEP 8:- Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
 
-  if (existingUser) {
-    res.status(409).json({
-      success: false,
-      message: "User already exists",
+    // STEP 9:- Set cookies
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    // STEP 10:-Response
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+      },
     });
-
-    return;
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const user = await UserModel.create({
-    firstName,
-    lastName,
-    email,
-    password: hashedPassword,
-    gender,
-    age,
-  });
-
-  res.status(201).json({
-    success: true,
-    message: "User registered successfully",
-
-    user: {
-      id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      gender: user.gender,
-      age: user.age,
-    },
-  });
 };
 
-export const login = async (
-  req: Request<object, object, LoginRequestBody>,
-  res: Response,
-): Promise<void> => {
-  const { email, password } = req.body;
+export const loginUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    //STEP 1:- Validate request body
+    const validationResult = loginUserValidationSchema.safeParse(req.body);
 
-  if (!email || !password) {
-    res.status(400).json({
-      success: false,
-      message: "Email and password are required",
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+
+        errors: validationResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+
+      return;
+    }
+
+    const { email, password } = validationResult.data;
+
+    //STEP 2:- Find user with password
+    const user = await User.findOne({
+      email,
+    }).select("+password +refreshToken");
+
+    // STEP 3:- Prevent email enumeration
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+
+      return;
+    }
+
+    // STEP 4:- Check account status
+    if (!user.isActive) {
+      res.status(403).json({
+        success: false,
+        message: "Account is disabled",
+      });
+
+      return;
+    }
+
+    // STEP 5:- Check account lock
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      res.status(423).json({
+        success: false,
+        message: "Account temporarily locked. Try again later.",
+      });
+
+      return;
+    }
+
+    // STEP 6:- Compare password
+    const isPasswordCorrect = await comparePassword(password, user.password);
+
+    // STEP 7:- Handle failed login
+    if (!isPasswordCorrect) {
+      user.loginAttempts += 1;
+
+      // Lock after 5 failed attempts
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+        user.loginAttempts = 0;
+      }
+
+      await user.save();
+      res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+
+      return;
+    }
+
+    //STEP 8:-Reset failed login attempts
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+
+    // STEP 9:- Verify email
+    if (!user.isEmailVerified) {
+      res.status(403).json({
+        success: false,
+        message: "Please verify your email first",
+      });
+      return;
+    }
+
+    // STEP 10:- Handle 2FA requirement
+    if (user.twoFactorEnabled) {
+      res.status(200).json({
+        success: true,
+        requiresTwoFactor: true,
+        message: "Two-factor authentication required",
+      });
+
+      return;
+    }
+
+    //STEP 11:- Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    //STEP 12:- Save refresh token
+    user.refreshToken = refreshToken;
+
+    // STEP 13:- Update login info
+    user.lastLogin = new Date();
+    await user.save();
+
+    // STEP 14:- Set cookies
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    // STEP 15:- Success response
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        isEmailVerified: user.isEmailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+      },
     });
-
-    return;
-  }
-
-  const user = await UserModel.findOne({ email });
-
-  if (!user) {
-    res.status(404).json({
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
       success: false,
-      message: "User not found",
+      message: "Internal server error",
     });
-
-    return;
   }
-
-  const isPasswordMatched = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordMatched) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid credentials",
-    });
-
-    return;
-  }
-
-  const payload: JwtPayload = {
-    id: user._id.toString(),
-  };
-
-  const token = jwt.sign(payload, process.env.JWT_SECRET as string, {
-    expiresIn: "7d",
-  });
-
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-
-  res.status(200).json({
-    success: true,
-    message: "Login successful",
-
-    user: {
-      id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      gender: user.gender,
-      age: user.age,
-    },
-  });
-};
-
-export const logout = async (_: Request, res: Response): Promise<void> => {
-  res.clearCookie("token");
-
-  res.status(200).json({
-    success: true,
-    message: "Logout successful",
-  });
 };
