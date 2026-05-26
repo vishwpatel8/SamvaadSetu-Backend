@@ -1,49 +1,61 @@
-import { type NextFunction, type Request, type Response } from "express";
-import jwt from "jsonwebtoken";
+import type { NextFunction, Request, Response } from "express";
 
-import UserModel from "../models/user.model.js";
-import { type AuthenticatedRequest } from "../types/request.type.js";
-import { type JwtPayload } from "../types/user.types.js";
+import User from "@src/model/user.model";
+import { verifyAccessToken } from "@src/utils/jwt";
 
-const protect = async (
+const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-    
-  const token = req.cookies.token;
+  try {
+    // STEP 1:- Read access token from cookies
+    const accessToken = req.cookies.accessToken;
 
-  if (!token) {
+    if (!accessToken) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+
+      return;
+    }
+
+    // STEP 2:- Verify token
+    const decoded = verifyAccessToken(accessToken);
+
+    // STEP 3:- Find user
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    // STEP 4:- Check active status
+    if (!user.isActive) {
+      res.status(403).json({
+        success: false,
+        message: "Account disabled",
+      });
+
+      return;
+    }
+
+    // STEP 5:- Attach user to request
+    req.user = user;
+
+    next();
+  } catch (error) {
     res.status(401).json({
       success: false,
-      message: "Unauthorized access",
+      message: "Invalid or expired token",
     });
-
-    return;
   }
-
-  const decoded = jwt.verify(
-    token,
-    process.env.JWT_SECRET as string,
-  ) as JwtPayload;
-
-  const user = await UserModel.findById(decoded.id).select("-password");
-
-  if (!user) {
-    res.status(401).json({
-      success: false,
-      message: "User not found",
-    });
-
-    return;
-  }
-
-  const authRequest = req as AuthenticatedRequest;
-
-  authRequest.user = user;
-  authRequest.userId = decoded.id;
-
-  next();
 };
 
-export default protect;
+export default authMiddleware;

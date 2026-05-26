@@ -1,12 +1,34 @@
-import express from "express";
+import { Router } from "express";
 
-import { login, logout, signup } from "../controllers/auth.controller.js";
-import protect from "../middleware/auth.middleware.js";
+import {
+  forgotPassword,
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  registerUser,
+  resendVerificationEmail,
+  resetPassword,
+  verifyEmail,
+} from "@src/controllers/auth.controller";
 
-const router = express.Router();
+import authMiddleware from "@src/middleware/auth.middleware";
+import authLimiter from "@src/middleware/rateLimiter.middleware";
 
-router.post("/signup", signup);
-router.post("/login", login);
-router.post("/logout", protect, logout);
+const authRouter = Router();
 
-export default router;
+authRouter.post("/register", authLimiter, registerUser);
+authRouter.post("/login", authLimiter, loginUser);
+authRouter.get("/me", authMiddleware, getCurrentUser);
+authRouter.post("/logout", authMiddleware, logoutUser);
+authRouter.post("/refresh-token", refreshAccessToken);
+authRouter.get("/verify-email/:token", verifyEmail);
+authRouter.post(
+  "/resend-verification-email",
+  authLimiter,
+  resendVerificationEmail,
+);
+authRouter.post("/forgot-password", authLimiter, forgotPassword);
+authRouter.post("/reset-password/:token", authLimiter, resetPassword);
+
+export default authRouter;

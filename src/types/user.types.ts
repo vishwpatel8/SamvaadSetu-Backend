@@ -1,16 +1,25 @@
-import { Document } from "mongoose";
-
-export type Gender = "male" | "female" | "other";
+import type { Document, Types } from "mongoose";
 
 export interface IUser extends Document {
-  firstName: string;
-  lastName: string;
+  _id: Types.ObjectId;
+
+  username: string;
   email: string;
   password: string;
-  gender: Gender;
-  age: number;
-}
-
-export interface JwtPayload {
-  id: string;
+  avatar?: string;
+  isEmailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  refreshToken?: string;
+  loginAttempts: number;
+  lockUntil?: Date;
+  lastLogin?: Date;
+  lastPasswordChangedAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
