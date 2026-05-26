@@ -28,3 +28,17 @@ export const loginUserValidationSchema = z.object({
 export type RegisterUserInput = z.infer<typeof registerUserValidationSchema>;
 
 export type LoginUserInput = z.infer<typeof loginUserValidationSchema>;
+export const forgotPasswordValidationSchema = z.object({
+  email: z.string().trim().email("Invalid email address"),
+});
+
+export const resetPasswordValidationSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password is too long")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
+      "Password must contain uppercase, lowercase, number and special character",
+    ),
+});

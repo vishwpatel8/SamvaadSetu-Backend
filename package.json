@@ -29,6 +29,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "morgan": "^1.10.1",
+    "nodemailer": "^8.0.8",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",
     "zod": "^4.4.3"
@@ -41,6 +42,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.8.0",
+    "@types/nodemailer": "^8.0.0",
     "nodemon": "^3.1.14",
     "tsc-alias": "^1.8.17",
     "tsconfig-paths": "^4.2.0",
