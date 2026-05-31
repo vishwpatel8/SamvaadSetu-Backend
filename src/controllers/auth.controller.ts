@@ -1196,3 +1196,67 @@ export const deleteAccount = async (
     });
   }
 };
+
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { username, avatar } = req.body;
+
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({
+        username,
+        _id: { $ne: user._id },
+      });
+
+      if (existingUsername) {
+        res.status(409).json({
+          success: false,
+          message: "Username already taken",
+        });
+
+        return;
+      }
+
+      user.username = username;
+    }
+
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        isEmailVerified: user.isEmailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

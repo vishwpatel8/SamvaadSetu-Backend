@@ -14,6 +14,7 @@ import {
   resendTwoFactorCode,
   resendVerificationEmail,
   resetPassword,
+  updateProfile,
   verifyEmail,
   verifyTwoFactor,
 } from "@src/controllers/auth.controller";
@@ -29,6 +30,7 @@ import {
   registerUserValidationSchema,
   resetPasswordValidationSchema,
   toggleTwoFactorValidationSchema,
+  updateProfileValidationSchema,
   verifyTwoFactorValidationSchema,
 } from "@src/validation/user.validation";
 
@@ -106,5 +108,12 @@ authRouter.delete(
   authLimiter,
   validate(deleteAccountValidationSchema),
   deleteAccount,
+);
+authRouter.patch(
+  "/update-profile",
+  authMiddleware,
+  authLimiter,
+  validate(updateProfileValidationSchema),
+  updateProfile,
 );
 export default authRouter;

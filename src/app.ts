@@ -50,7 +50,7 @@ export default app;
 
 // User Session Profile
 // GET /api/v1/auth/me                          ✅
-// PATCH /api/v1/auth/update-profile
+// PATCH /api/v1/auth/update-profile            ✅
 // POST /api/v1/auth/delete-account             ✅
 // POST /api/v1/auth/recover-account
 
@@ -60,3 +60,10 @@ export default app;
 // 5. Socket.io Integration
 // 7. Profile APIs
 // 8. Chat functionality
+
+// 1. Conversation Schema
+// 2. Message Schema
+// 3. Socket.IO Setup
+// 4. Online/Offline Presence
+// 5. Real-time Messaging
+// 6. Read Receipts
