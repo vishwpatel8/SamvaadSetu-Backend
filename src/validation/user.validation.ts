@@ -42,3 +42,11 @@ export const resetPasswordValidationSchema = z.object({
       "Password must contain uppercase, lowercase, number and special character",
     ),
 });
+
+export const verifyTwoFactorValidationSchema = z.object({
+  otp: z.string().length(6, "OTP must be 6 digits"),
+});
+
+export const toggleTwoFactorValidationSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+});

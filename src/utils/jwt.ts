@@ -65,3 +65,15 @@ export const verifyRefreshToken = (token: string): IRefreshTokenPayload => {
 
   return jwt.verify(token, refreshTokenSecret) as IRefreshTokenPayload;
 };
+
+export const generateTwoFactorToken = (userId: string): string => {
+  return jwt.sign({ userId }, process.env.JWT_ACCESS_SECRET as string, {
+    expiresIn: "5m",
+  });
+};
+
+export const verifyTwoFactorToken = (token: string): { userId: string } => {
+  return jwt.verify(token, process.env.JWT_ACCESS_SECRET as string) as {
+    userId: string;
+  };
+};

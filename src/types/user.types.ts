@@ -13,7 +13,9 @@ export interface IUser extends Document {
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   twoFactorEnabled: boolean;
-  twoFactorSecret?: string;
+  twoFactorCode?: string;
+  twoFactorCodeExpires?: Date;
+  twoFactorAttempts: number;
   refreshToken?: string;
   loginAttempts: number;
   lockUntil?: Date;
