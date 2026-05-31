@@ -67,3 +67,14 @@ export const changePasswordValidationSchema = z.object({
 export const deleteAccountValidationSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
+
+export const updateProfileValidationSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username cannot exceed 30 characters")
+    .optional(),
+
+  avatar: z.string().trim().url("Invalid avatar URL").optional(),
+});
