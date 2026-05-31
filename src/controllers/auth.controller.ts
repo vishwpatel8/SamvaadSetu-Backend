@@ -1143,3 +1143,56 @@ export const changePassword = async (
     });
   }
 };
+
+export const deleteAccount = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { password } = req.body;
+
+    const user = await User.findById(req.user?._id).select(
+      "+password +refreshToken",
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    const isPasswordCorrect = await comparePassword(password, user.password);
+
+    if (!isPasswordCorrect) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+
+      return;
+    }
+
+    user.isActive = false;
+
+    user.refreshToken = undefined;
+
+    await user.save();
+
+    clearAuthCookies(res);
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

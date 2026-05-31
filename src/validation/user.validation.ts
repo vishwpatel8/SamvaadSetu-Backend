@@ -63,3 +63,7 @@ export const changePasswordValidationSchema = z.object({
       "Password must contain uppercase, lowercase, number and special character",
     ),
 });
+
+export const deleteAccountValidationSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+});
