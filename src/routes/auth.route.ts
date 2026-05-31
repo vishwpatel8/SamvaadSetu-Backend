@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  changePassword,
   disableTwoFactor,
   enableTwoFactor,
   forgotPassword,
@@ -38,5 +39,11 @@ authRouter.post("/2fa/verify", authLimiter, verifyTwoFactor);
 authRouter.post("/enable-2fa", authMiddleware, authLimiter, enableTwoFactor);
 authRouter.post("/disable-2fa", authMiddleware, authLimiter, disableTwoFactor);
 authRouter.post("/resend-2fa", authLimiter, resendTwoFactorCode);
+authRouter.patch(
+  "/change-password",
+  authMiddleware,
+  authLimiter,
+  changePassword,
+);
 
 export default authRouter;
