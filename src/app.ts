@@ -41,7 +41,7 @@ export default app;
 
 // POST /api/v1/auth/forgot-password            ✅
 // POST /api/v1/auth/reset-password/:token      ✅
-// POST /api/v1/auth/change-password
+// POST /api/v1/auth/change-password            ✅
 
 // POST /api/v1/auth/2fa/verify                 ✅
 // POST /api/v1/auth/2fa/enable                 ✅
@@ -56,8 +56,6 @@ export default app;
 // GET /api/v1/auth/check-email
 // POST /api/v1/auth/verify-password  // check before changing the enable disable 2fa.
 
-// 3. Resend 2FA OTP endpoint
-// 4. OTP attempt limiting
 // 5. Validation middleware
 // 6. Error middleware
 // 7. Profile APIs

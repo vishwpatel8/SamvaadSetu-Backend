@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 // User Model and Validation
 import User from "@src/model/user.model";
 import {
+  changePasswordValidationSchema,
   forgotPasswordValidationSchema,
   loginUserValidationSchema,
   registerUserValidationSchema,
@@ -1147,6 +1148,98 @@ export const resendTwoFactorCode = async (
     res.status(200).json({
       success: true,
       message: "Verification code sent successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const changePassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const validationResult = changePasswordValidationSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        errors: validationResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+
+      return;
+    }
+
+    const { currentPassword, newPassword } = validationResult.data;
+    const authUser = req.user;
+
+    if (!authUser) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(authUser._id).select(
+      "+password +refreshToken",
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    const isCurrentPasswordValid = await comparePassword(
+      currentPassword,
+      user.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+
+      return;
+    }
+
+    const isSamePassword = await comparePassword(newPassword, user.password);
+
+    if (isSamePassword) {
+      res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+
+      return;
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+    user.password = hashedPassword;
+    user.lastPasswordChangedAt = new Date();
+
+    // Force logout from all devices
+    user.refreshToken = undefined;
+    await user.save();
+    clearAuthCookies(res);
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully. Please login again.",
     });
   } catch (error) {
     console.error(error);
