@@ -32,27 +32,33 @@ app.use("/api/v1/auth", authRouter);
 export default app;
 
 //  All Auth Routes
-// POST /api/v1/auth/register                   // done
-// POST /api/v1/auth/verify-email               // done
-// POST /api/v1/auth/resend-verification-email  // done
-// POST /api/v1/auth/login                      // done
-// POST /api/v1/auth/verify-2fa-login
-// POST /api/v1/auth/refresh-token              // done
-// POST /api/v1/auth/logout                     // done
+// POST /api/v1/auth/register                   ✅
+// POST /api/v1/auth/verify-emai/:token         ✅
+// POST /api/v1/auth/resend-verification-email  ✅
+// POST /api/v1/auth/login                      ✅
+// POST /api/v1/auth/refresh-token              ✅
+// POST /api/v1/auth/logout                     ✅
 
-// POST /api/v1/auth/forgot-password            // done
-// POST /api/v1/auth/reset-password             // done
+// POST /api/v1/auth/forgot-password            ✅
+// POST /api/v1/auth/reset-password/:token      ✅
 // POST /api/v1/auth/change-password
 
-// POST /api/v1/auth/2fa/generate
-// POST /api/v1/auth/2fa/enable
-// POST /api/v1/auth/2fa/disable
-// POST /api/v1/auth/2fa/verify
+// POST /api/v1/auth/2fa/verify                 ✅
+// POST /api/v1/auth/2fa/enable                 ✅
+// POST /api/v1/auth/2fa/disable                ✅
+// POST /api/v1/auth/2fa/resend                 ✅
 
 // User Session Profile
-// GET /api/v1/auth/me                          // done
+// GET /api/v1/auth/me                          ✅
 // PATCH /api/v1/auth/update-profile
 
 // Optional Check Email Availability
 // GET /api/v1/auth/check-email
 // POST /api/v1/auth/verify-password  // check before changing the enable disable 2fa.
+
+// 3. Resend 2FA OTP endpoint
+// 4. OTP attempt limiting
+// 5. Validation middleware
+// 6. Error middleware
+// 7. Profile APIs
+// 8. Chat functionality

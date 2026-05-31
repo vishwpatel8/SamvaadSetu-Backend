@@ -28,3 +28,20 @@ export const clearAuthCookies = (res: Response): void => {
   res.clearCookie("accessToken");
   res.clearCookie("refreshToken");
 };
+
+export const setTwoFactorTokenCookie = (res: Response, token: string): void => {
+  res.cookie("twoFactorToken", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const clearTwoFactorTokenCookie = (res: Response): void => {
+  res.clearCookie("twoFactorToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+};

@@ -10,7 +10,7 @@ const userSchema = new Schema<IUser>(
       unique: true,
       trim: true,
       minlength: 3,
-      maxlength: 30
+      maxlength: 30,
     },
 
     email: {
@@ -18,82 +18,92 @@ const userSchema = new Schema<IUser>(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
     },
 
     password: {
       type: String,
       required: true,
       minlength: 8,
-      select: false
+      select: false,
     },
 
     avatar: {
       type: String,
-      default: ""
+      default: "",
     },
 
     isEmailVerified: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     emailVerificationToken: {
-      type: String
+      type: String,
     },
 
     emailVerificationExpires: {
-      type: Date
+      type: Date,
     },
 
     passwordResetToken: {
-      type: String
+      type: String,
     },
 
     passwordResetExpires: {
-      type: Date
+      type: Date,
     },
 
     twoFactorEnabled: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
-    twoFactorSecret: {
+    twoFactorCode: {
       type: String,
-      select: false
+      select: false,
+    },
+
+    twoFactorCodeExpires: {
+      type: Date,
+      select: false,
+    },
+
+    twoFactorAttempts: {
+      type: Number,
+      default: 0,
     },
 
     refreshToken: {
       type: String,
-      select: false
+      select: false,
     },
 
     loginAttempts: {
       type: Number,
-      default: 0
+      default: 0,
     },
 
     lockUntil: {
-      type: Date
+      type: Date,
     },
 
     lastLogin: {
-      type: Date
+      type: Date,
     },
 
     lastPasswordChangedAt: {
-      type: Date
+      type: Date,
     },
 
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 const User = mongoose.model<IUser>("User", userSchema);

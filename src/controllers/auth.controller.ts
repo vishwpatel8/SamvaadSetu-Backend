@@ -8,6 +8,8 @@ import {
   loginUserValidationSchema,
   registerUserValidationSchema,
   resetPasswordValidationSchema,
+  toggleTwoFactorValidationSchema,
+  verifyTwoFactorValidationSchema,
 } from "@src/validation/user.validation";
 
 // Utilities
@@ -15,12 +17,16 @@ import {
   clearAuthCookies,
   setAccessTokenCookie,
   setRefreshTokenCookie,
+  setTwoFactorTokenCookie,
 } from "@src/utils/cookies";
 import {
   generateAccessToken,
   generateRefreshToken,
+  generateTwoFactorToken,
   verifyRefreshToken,
+  verifyTwoFactorToken,
 } from "@src/utils/jwt";
+import { generateOTP } from "@src/utils/otp";
 import { comparePassword, hashPassword } from "@src/utils/password";
 import sendEmail from "@src/utils/sendEmail";
 
@@ -220,15 +226,55 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     // STEP 10:- Handle 2FA requirement
     if (user.twoFactorEnabled) {
-      res.status(200).json({
-        success: true,
-        requiresTwoFactor: true,
-        message: "Two-factor authentication required",
-      });
+      try {
+        const otp = generateOTP(); // Generate OTP
+        const hashedOTP = await hashPassword(otp); // Hash OTP before storing
 
-      return;
+        const twoFactorToken = generateTwoFactorToken(user._id.toString()); // Generate temporary 2FA session token
+
+        user.twoFactorCode = hashedOTP; // Store OTP details
+        user.twoFactorCodeExpires = new Date(Date.now() + 5 * 60 * 1000);
+
+        // Reset OTP attempts counter (if using one)
+        user.twoFactorAttempts = 0;
+        await user.save();
+
+        // Send OTP email
+        await sendEmail({
+          to: user.email,
+          subject: "Your Login Verification Code",
+          html: `
+        <h2>Login Verification</h2>
+        <p>Your verification code is:</p>
+        <h1>${otp}</h1>
+        <p>This code will expire in 5 minutes.</p>
+        <p>If you did not attempt to log in, please ignore this email.</p>
+      `,
+        });
+
+        setTwoFactorTokenCookie(res, twoFactorToken);
+        res.status(200).json({
+          success: true,
+          requiresTwoFactor: true,
+          message: "Verification code sent to email",
+        });
+
+        return;
+      } catch (error) {
+        console.error("2FA login error:", error);
+        // Clean up OTP if email sending fails
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpires = undefined;
+        user.twoFactorAttempts = 0;
+        await user.save();
+        res.status(500).json({
+          success: false,
+          message: "Failed to send verification code",
+        });
+
+        return;
+      }
     }
-
     //STEP 11:- Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -714,6 +760,393 @@ export const resetPassword = async (
     res.status(200).json({
       success: true,
       message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const verifyTwoFactor = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const validationResult = verifyTwoFactorValidationSchema.safeParse(
+      req.body,
+    );
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: validationResult.error.issues[0]?.message,
+      });
+
+      return;
+    }
+
+    const { otp } = validationResult.data;
+
+    const twoFactorToken = req.cookies.twoFactorToken;
+    if (!twoFactorToken) {
+      res.status(401).json({
+        success: false,
+        message: "2FA session expired",
+      });
+
+      return;
+    }
+    let decoded;
+
+    try {
+      decoded = verifyTwoFactorToken(twoFactorToken);
+    } catch {
+      res.status(401).json({
+        success: false,
+        message: "Invalid or expired 2FA session",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(decoded.userId).select(
+      "+refreshToken +twoFactorCode +twoFactorCodeExpires",
+    );
+
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    if (!user.twoFactorCode || !user.twoFactorCodeExpires) {
+      res.status(400).json({
+        success: false,
+        message: "No verification code found",
+      });
+
+      return;
+    }
+
+    if (user.twoFactorCodeExpires < new Date()) {
+      user.twoFactorCode = undefined;
+      user.twoFactorCodeExpires = undefined;
+      await user.save();
+      res.status(400).json({
+        success: false,
+        message: "Verification code expired",
+      });
+
+      return;
+    }
+
+    const isOTPValid = await comparePassword(otp, user.twoFactorCode);
+
+    if (!isOTPValid) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid verification code",
+      });
+
+      return;
+    }
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    user.refreshToken = refreshToken;
+    user.twoFactorCode = undefined;
+    user.twoFactorCodeExpires = undefined;
+    user.lastLogin = new Date();
+
+    await user.save();
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        isEmailVerified: user.isEmailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const enableTwoFactor = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const validationResult = toggleTwoFactorValidationSchema.safeParse(
+      req.body,
+    );
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: validationResult.error.issues[0]?.message,
+      });
+
+      return;
+    }
+
+    const { password } = validationResult.data;
+
+    const authUser = req.user;
+
+    if (!authUser) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(authUser._id).select("+password");
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    const isPasswordValid = await comparePassword(password, user.password);
+
+    if (!isPasswordValid) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+
+      return;
+    }
+
+    if (!user.isEmailVerified) {
+      res.status(403).json({
+        success: false,
+        message: "Verify your email before enabling 2FA",
+      });
+
+      return;
+    }
+
+    if (user.twoFactorEnabled) {
+      res.status(400).json({
+        success: false,
+        message: "Two-factor authentication is already enabled",
+      });
+
+      return;
+    }
+
+    user.twoFactorEnabled = true;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Two-factor authentication enabled successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const disableTwoFactor = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const validationResult = toggleTwoFactorValidationSchema.safeParse(
+      req.body,
+    );
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: validationResult.error.issues[0]?.message,
+      });
+
+      return;
+    }
+
+    const { password } = validationResult.data;
+
+    const authUser = req.user;
+
+    if (!authUser) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(authUser._id).select("+password");
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    const isPasswordValid = await comparePassword(password, user.password);
+
+    if (!isPasswordValid) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+
+      return;
+    }
+
+    if (!user.twoFactorEnabled) {
+      res.status(400).json({
+        success: false,
+        message: "Two-factor authentication is already disabled",
+      });
+
+      return;
+    }
+
+    user.twoFactorEnabled = false;
+
+    user.twoFactorCode = undefined;
+    user.twoFactorCodeExpires = undefined;
+    user.twoFactorAttempts = 0;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Two-factor authentication disabled successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const resendTwoFactorCode = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const twoFactorToken = req.cookies.twoFactorToken;
+
+    if (!twoFactorToken) {
+      res.status(401).json({
+        success: false,
+        message: "2FA session expired",
+      });
+
+      return;
+    }
+
+    let decoded;
+
+    try {
+      decoded = verifyTwoFactorToken(twoFactorToken);
+    } catch {
+      res.status(401).json({
+        success: false,
+        message: "Invalid or expired 2FA session",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(decoded.userId).select(
+      "+twoFactorCode +twoFactorCodeExpires",
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+
+      return;
+    }
+
+    if (!user.twoFactorEnabled) {
+      res.status(400).json({
+        success: false,
+        message: "Two-factor authentication is disabled",
+      });
+
+      return;
+    }
+
+    const otp = generateOTP();
+
+    const hashedOTP = await hashPassword(otp);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Your Login Verification Code",
+      html: `
+        <h2>Login Verification</h2>
+
+        <p>Your new verification code is:</p>
+
+        <h1>${otp}</h1>
+
+        <p>This code will expire in 5 minutes.</p>
+
+        <p>If you did not attempt to log in, please ignore this email.</p>
+      `,
+    });
+
+    user.twoFactorCode = hashedOTP;
+
+    user.twoFactorCodeExpires = new Date(Date.now() + 5 * 60 * 1000);
+
+    user.twoFactorAttempts = 0;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent successfully",
     });
   } catch (error) {
     console.error(error);
