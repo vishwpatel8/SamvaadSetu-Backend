@@ -3,15 +3,6 @@ import type { Request, Response } from "express";
 
 // User Model and Validation
 import User from "@src/model/user.model";
-import {
-  changePasswordValidationSchema,
-  forgotPasswordValidationSchema,
-  loginUserValidationSchema,
-  registerUserValidationSchema,
-  resetPasswordValidationSchema,
-  toggleTwoFactorValidationSchema,
-  verifyTwoFactorValidationSchema,
-} from "@src/validation/user.validation";
 
 // Utilities
 import {
@@ -36,19 +27,8 @@ export const registerUser = async (
   res: Response,
 ): Promise<void> => {
   try {
-    //STEP 1:-Validate request body
-    const validationResult = registerUserValidationSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-
-      return;
-    }
-
-    const { username, email, password } = validationResult.data;
+    //STEP 1:-Validate request body done in the middleware so just destructure the validated data
+    const { username, email, password } = req.body;
 
     // STEP 2:- Check existing email
     const existingEmail = await User.findOne({ email });
@@ -137,23 +117,8 @@ export const registerUser = async (
 
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    //STEP 1:- Validate request body
-    const validationResult = loginUserValidationSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-
-        errors: validationResult.error.issues.map((issue) => ({
-          field: issue.path.join("."),
-          message: issue.message,
-        })),
-      });
-
-      return;
-    }
-
-    const { email, password } = validationResult.data;
+    //STEP 1:- Validate request body done in the middleware so just destructure the validated data
+    const { email, password } = req.body;
 
     //STEP 2:- Find user with password
     const user = await User.findOne({
@@ -619,19 +584,8 @@ export const forgotPassword = async (
   res: Response,
 ): Promise<void> => {
   try {
-    // STEP 1:- Validate request
-    const validationResult = forgotPasswordValidationSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-
-      return;
-    }
-
-    const { email } = validationResult.data;
+    // STEP 1:- Validate request body done in the middleware so just destructure the validated data
+    const { email } = req.body;
 
     // STEP 2:- Find user
     const user = await User.findOne({
@@ -703,18 +657,8 @@ export const resetPassword = async (
   res: Response,
 ): Promise<void> => {
   try {
-    // STEP 1:- Validate password
-    const validationResult = resetPasswordValidationSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-      return;
-    }
-
-    const { password } = validationResult.data;
+    // STEP 1:- Validate password done in the middleware so just destructure the validated data
+    const { password } = req.body;
     const { token } = req.params;
 
     // STEP 2:- Find matching user
@@ -777,20 +721,8 @@ export const verifyTwoFactor = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const validationResult = verifyTwoFactorValidationSchema.safeParse(
-      req.body,
-    );
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-
-      return;
-    }
-
-    const { otp } = validationResult.data;
+    // Validate OTP done in the middleware so just destructure the validated data
+    const { otp } = req.body;
 
     const twoFactorToken = req.cookies.twoFactorToken;
     if (!twoFactorToken) {
@@ -898,21 +830,8 @@ export const enableTwoFactor = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const validationResult = toggleTwoFactorValidationSchema.safeParse(
-      req.body,
-    );
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-
-      return;
-    }
-
-    const { password } = validationResult.data;
-
+    // Validate password done in the middleware so just destructure the validated data
+    const { password } = req.body;
     const authUser = req.user;
 
     if (!authUser) {
@@ -987,21 +906,8 @@ export const disableTwoFactor = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const validationResult = toggleTwoFactorValidationSchema.safeParse(
-      req.body,
-    );
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        message: validationResult.error.issues[0]?.message,
-      });
-
-      return;
-    }
-
-    const { password } = validationResult.data;
-
+    // Validate password done in the middleware so just destructure the validated data
+    const { password } = req.body;
     const authUser = req.user;
 
     if (!authUser) {
@@ -1164,21 +1070,8 @@ export const changePassword = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const validationResult = changePasswordValidationSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      res.status(400).json({
-        success: false,
-        errors: validationResult.error.issues.map((issue) => ({
-          field: issue.path.join("."),
-          message: issue.message,
-        })),
-      });
-
-      return;
-    }
-
-    const { currentPassword, newPassword } = validationResult.data;
+    // Validate passwords done in the middleware so just destructure the validated data
+    const { currentPassword, newPassword } = req.body;
     const authUser = req.user;
 
     if (!authUser) {
