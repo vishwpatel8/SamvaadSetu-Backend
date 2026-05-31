@@ -52,11 +52,14 @@ export default app;
 // GET /api/v1/auth/me                          ✅
 // PATCH /api/v1/auth/update-profile
 
-// Optional Check Email Availability
-// GET /api/v1/auth/check-email
-// POST /api/v1/auth/verify-password  // check before changing the enable disable 2fa.
 
 // 5. Validation middleware
 // 6. Error middleware
 // 7. Profile APIs
 // 8. Chat functionality
+
+// 1. Update Profile
+// 2. Delete Account
+// 3. Conversation Model
+// 4. Message Model
+// 5. Socket.io Integration
