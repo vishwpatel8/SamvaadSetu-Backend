@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   changePassword,
+  deleteAccount,
   disableTwoFactor,
   enableTwoFactor,
   forgotPassword,
@@ -22,6 +23,7 @@ import authLimiter from "@src/middleware/rateLimiter.middleware";
 import validate from "@src/middleware/validate.middleware";
 import {
   changePasswordValidationSchema,
+  deleteAccountValidationSchema,
   forgotPasswordValidationSchema,
   loginUserValidationSchema,
   registerUserValidationSchema,
@@ -98,5 +100,11 @@ authRouter.patch(
   validate(changePasswordValidationSchema),
   changePassword,
 );
-
+authRouter.delete(
+  "/delete-account",
+  authMiddleware,
+  authLimiter,
+  validate(deleteAccountValidationSchema),
+  deleteAccount,
+);
 export default authRouter;

@@ -51,15 +51,12 @@ export default app;
 // User Session Profile
 // GET /api/v1/auth/me                          ✅
 // PATCH /api/v1/auth/update-profile
-
-
-// 5. Validation middleware
-// 6. Error middleware
-// 7. Profile APIs
-// 8. Chat functionality
+// POST /api/v1/auth/delete-account             ✅
+// POST /api/v1/auth/recover-account
 
 // 1. Update Profile
-// 2. Delete Account
 // 3. Conversation Model
 // 4. Message Model
 // 5. Socket.io Integration
+// 7. Profile APIs
+// 8. Chat functionality
