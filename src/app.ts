@@ -6,28 +6,39 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-// Routes
-import authRouter from "@src/routes/auth.route";
+// Routes and middleware
+import errorHandler from "./middleware/error.middleware.js";
+import healthRoutes from "./routes/health.route.js";
+// import authRouter from "./routes/auth.route.js";
 
 const app = express();
 
-// Middleware
-app.use(cors({ origin: process.env.CLIENT_URI, credentials: true }));
+// Security middleware
 app.use(helmet());
+app.use(cors({ origin: process.env.CLIENT_URI, credentials: true }));
+
+// // Logging middleware
 app.use(morgan("dev"));
+
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Routes
-app.get("/", (_, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Server is running",
-  });
+// API routes
+app.use("/api/health", healthRoutes);
+// app.use("/api/v1/auth", authRouter);
+
+// 404 handler
+app.use((_req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Route not found Please check the URL and try again.",
+    });
 });
 
-app.use("/api/v1/auth", authRouter);
+// Error handler (always last)
+app.use(errorHandler);
 
 export default app;
 

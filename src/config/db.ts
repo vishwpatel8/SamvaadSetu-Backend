@@ -1,25 +1,16 @@
-import mongoose from "mongoose";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
-const connectDB = async (): Promise<void> => {
-  try {
-    const mongoURI = process.env.MONGO_URI;
+const databaseUrl = process.env.DATABASE_URL;
 
-    if (!mongoURI) {
-      throw new Error("MONGO_URI is missing in environment variables");
-    }
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is not defined");
+}
 
-    await mongoose.connect(mongoURI);
+export const client = postgres(databaseUrl, { max: 10 });
+export const db = drizzle(client);
 
-    console.log("MongoDB connected successfully");
-  } catch (error) {
-    console.error("MongoDB connection failed");
-
-    if (error instanceof Error) {
-      console.error(error.message);
-    }
-
-    process.exit(1);
-  }
+export const connectDatabase = async () => {
+  await client`SELECT 1`;
+  console.log("PostgreSQL connected successfully!");
 };
-
-export default connectDB;
