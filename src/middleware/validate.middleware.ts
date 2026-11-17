@@ -1,25 +1,25 @@
 import type { NextFunction, Request, Response } from "express";
-import type { ZodSchema } from "zod";
+import type { z } from "zod";
 
 const validate =
-  (schema: ZodSchema) =>
+  (schema: z.ZodType) =>
   (req: Request, res: Response, next: NextFunction): void => {
-    const validationResult = schema.safeParse(req.body);
+    const result = schema.safeParse(req.body);
 
-    if (!validationResult.success) {
+    if (!result.success) {
       res.status(400).json({
         success: false,
-        errors: validationResult.error.issues.map((issue) => ({
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
           field: issue.path.join("."),
           message: issue.message,
+          code: issue.code,
         })),
       });
 
       return;
     }
-
-    req.body = validationResult.data;
-
+    req.body = result.data;
     next();
   };
 

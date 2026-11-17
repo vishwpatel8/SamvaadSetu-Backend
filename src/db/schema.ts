@@ -15,39 +15,41 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
 
     // Basic Information
-    email: varchar("email", { length: 100 }).unique().notNull(),
+    email: varchar("email", { length: 254 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    userName: varchar("user_name", { length: 30 }).unique().notNull(),
+    userName: varchar("user_name", { length: 30 }).notNull(),
     displayName: varchar("display_name", { length: 50 }).notNull(),
     about: varchar("about", { length: 180 }),
-    avatarKey: varchar("avatar_key", { length: 512 }).default(""),
+    avatarKey: varchar("avatar_key", { length: 512 }),
 
     // Email Verification
     isEmailVerified: boolean("is_email_verified").default(false).notNull(),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
-    emailVerificationToken: varchar("email_verification_token", {
-      length: 255,
+    emailVerificationTokenHash: varchar("email_verification_token_hash", {
+      length: 100,
     }),
     emailVerificationExpires: timestamp("email_verification_expires", {
       withTimezone: true,
     }),
 
     // Password Reset
-    passwordResetToken: varchar("password_reset_token", { length: 255 }),
+    passwordResetTokenHash: varchar("password_reset_token_hash", {
+      length: 100,
+    }),
     passwordResetExpires: timestamp("password_reset_expires", {
       withTimezone: true,
     }),
 
     // Two-Factor Authentication
     twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
-    twoFactorCode: varchar("two_factor_code", { length: 255 }),
+    twoFactorCodeHash: varchar("two_factor_code_hash", { length: 100 }),
     twoFactorCodeExpires: timestamp("two_factor_code_expires", {
       withTimezone: true,
     }),
     twoFactorAttempts: integer("two_factor_attempts").default(0).notNull(),
 
     // Session Management
-    refreshToken: varchar("refresh_token", { length: 512 }),
+    refreshTokenHash: varchar("refresh_token_hash", { length: 512 }),
 
     // Login Security
     loginAttempts: integer("login_attempts").default(0).notNull(),
@@ -74,9 +76,14 @@ export const users = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex("users_email_lower_unique").on(sql`lower(${table.email})`),
-    uniqueIndex("users_username_lower_unique").on(
-      sql`lower(${table.userName})`,
-    ),
+    uniqueIndex("users_email_lower_unique")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.deletedAt} IS NULL`),
+
+    uniqueIndex("users_username_lower_unique")
+      .on(sql`lower(${table.userName})`)
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
+
+export type User = typeof users.$inferSelect;
