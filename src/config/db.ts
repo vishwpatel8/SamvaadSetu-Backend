@@ -14,3 +14,7 @@ export const connectDatabase = async () => {
   await client`SELECT 1`;
   console.log("PostgreSQL connected successfully!");
 };
+
+export const closeDatabase = async (): Promise<void> => {
+  await client.end({ timeout: 5 });
+};
